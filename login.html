@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Golf en Ritmo — Ingresar</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --green-dark:#173524;
+  --green:#28543a;
+  --gold:#d2b25f;
+  --cream:#f4efe6;
+  --white:#fff;
+  --text:#1d2a22;
+  --muted:#718277;
+  --danger:#c53b2d;
+  --shadow:0 6px 24px rgba(0,0,0,.10);
+  --radius:18px;
+}
+html,body{
+  height:100%;
+  font-family:'DM Sans',sans-serif;
+  background:linear-gradient(160deg,#173524 0%,#28543a 50%,#1f4530 100%);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+}
+.card{
+  background:var(--white);
+  border-radius:24px;
+  padding:36px 32px;
+  width:100%;
+  max-width:380px;
+  box-shadow:0 20px 60px rgba(0,0,0,.25);
+}
+.logo{
+  text-align:center;
+  margin-bottom:28px;
+}
+.logo-icon{
+  width:64px;
+  height:64px;
+  background:linear-gradient(135deg,var(--green-dark),var(--green));
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin:0 auto 14px;
+  box-shadow:0 6px 20px rgba(23,53,36,.3);
+}
+.logo-icon svg{width:32px;height:32px;fill:var(--gold)}
+.logo h1{font-size:22px;font-weight:700;color:var(--green-dark)}
+.logo p{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:4px}
+.field{margin-bottom:16px}
+.field label{
+  display:block;
+  font-size:11px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:var(--muted);
+  margin-bottom:8px;
+}
+.field input{
+  width:100%;
+  padding:14px 16px;
+  border:1.5px solid #e0dbd0;
+  border-radius:12px;
+  font-size:15px;
+  font-family:'DM Sans',sans-serif;
+  color:var(--text);
+  background:#fafaf8;
+  transition:border-color .15s;
+}
+.field input:focus{outline:none;border-color:var(--green);background:#fff}
+.btn{
+  width:100%;
+  padding:16px;
+  background:linear-gradient(135deg,var(--green-dark),var(--green));
+  color:white;
+  border:none;
+  border-radius:14px;
+  font-size:16px;
+  font-weight:700;
+  font-family:'DM Sans',sans-serif;
+  cursor:pointer;
+  margin-top:8px;
+  box-shadow:0 6px 20px rgba(23,53,36,.25);
+  transition:opacity .15s;
+}
+.btn:hover{opacity:.92}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+.error{
+  background:#fff0ee;
+  color:var(--danger);
+  border-radius:10px;
+  padding:12px 14px;
+  font-size:13px;
+  font-weight:600;
+  margin-top:14px;
+  display:none;
+}
+.loading{
+  text-align:center;
+  padding:12px;
+  color:var(--muted);
+  font-size:14px;
+  display:none;
+}
+.spinner{
+  display:inline-block;
+  width:18px;height:18px;
+  border:2px solid #ddd;
+  border-top-color:var(--green);
+  border-radius:50%;
+  animation:spin .7s linear infinite;
+  margin-right:8px;
+  vertical-align:middle;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>
+    </div>
+    <h1>Golf en Ritmo</h1>
+    <p>Control de cancha</p>
+  </div>
+
+  <div class="field">
+    <label>Correo electrónico</label>
+    <input type="email" id="email" placeholder="tu@email.com" autocomplete="email" />
+  </div>
+
+  <div class="field">
+    <label>Contraseña</label>
+    <input type="password" id="pass" placeholder="••••••••" autocomplete="current-password" />
+  </div>
+
+  <button class="btn" id="btnLogin" onclick="login()">Ingresar</button>
+
+  <div class="loading" id="loading">
+    <span class="spinner"></span>Verificando...
+  </div>
+
+  <div class="error" id="error"></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBJRFwNTC1DJOnTGaDV_FYDyKHif5LKrIE",
+  authDomain: "golf-en-ritmo.firebaseapp.com",
+  projectId: "golf-en-ritmo",
+  storageBucket: "golf-en-ritmo.firebasestorage.app",
+  messagingSenderId: "448451530247",
+  appId: "1:448451530287:web:5b851afb50480d027940da"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+// Si ya está logueado, redirigir
+onAuthStateChanged(auth, user => {
+  if(user){
+    redirigir(user.email);
+  }
+});
+
+window.login = async function(){
+  const email = document.getElementById('email').value.trim();
+  const pass  = document.getElementById('pass').value;
+  const btn   = document.getElementById('btnLogin');
+  const err   = document.getElementById('error');
+  const load  = document.getElementById('loading');
+
+  if(!email || !pass){
+    mostrarError('Por favor completá todos los campos.');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.style.display = 'none';
+  load.style.display = 'block';
+  err.style.display  = 'none';
+
+  try{
+    const cred = await signInWithEmailAndPassword(auth, email, pass);
+    redirigir(cred.user.email);
+  }catch(e){
+    btn.disabled = false;
+    btn.style.display = 'block';
+    load.style.display = 'none';
+    if(e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password' || e.code === 'auth/user-not-found'){
+      mostrarError('Email o contraseña incorrectos.');
+    } else {
+      mostrarError('Error al ingresar. Verificá tu conexión.');
+    }
+  }
+};
+
+function redirigir(email){
+  if(email === 'admin@golfenritmo.com'){
+    window.location.href = 'admin.html';
+  } else {
+    window.location.href = 'index.html';
+  }
+}
+
+function mostrarError(msg){
+  const err = document.getElementById('error');
+  err.textContent = msg;
+  err.style.display = 'block';
+}
+
+// Enter para login
+document.getElementById('pass').addEventListener('keydown', e => {
+  if(e.key === 'Enter') window.login();
+});
+</script>
+</body>
+</html>

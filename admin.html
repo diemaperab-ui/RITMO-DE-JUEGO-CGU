@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Golf en Ritmo — Administrador</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--green-dark:#173524;--green:#28543a;--gold:#d2b25f;--cream:#f4efe6;--white:#fff;--text:#1d2a22;--muted:#718277;--danger:#c53b2d;--success:#207548;--shadow:0 6px 24px rgba(0,0,0,.08);--radius:18px}
+body{font-family:'DM Sans',sans-serif;background:linear-gradient(to bottom,#f8f5ee,#ece5d8);color:var(--text);padding-bottom:40px}
+#authLoading{position:fixed;inset:0;background:var(--green-dark);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:999}
+#authLoading .spinner{width:36px;height:36px;border:3px solid rgba(255,255,255,.2);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite}
+#authLoading p{color:rgba(255,255,255,.7);font-size:14px}
+@keyframes spin{to{transform:rotate(360deg)}}
+#appWrapper{display:none}
+.header{background:linear-gradient(135deg,var(--green-dark),var(--green));padding:18px 20px;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
+.header-top{display:flex;align-items:center;justify-content:space-between}
+.header h1{color:white;font-size:20px;font-weight:700}
+.header p{color:#d8c48f;font-size:11px;margin-top:3px;letter-spacing:.08em;text-transform:uppercase}
+.logout-btn{background:rgba(255,255,255,.15);border:none;color:white;padding:8px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+.main{max-width:1000px;margin:auto;padding:16px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.kpi{background:white;border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
+.kpi small{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;margin-bottom:8px}
+.kpi strong{font-size:26px;font-family:'DM Mono',monospace}
+.tabs{display:flex;gap:4px;margin-bottom:16px;background:white;padding:6px;border-radius:14px;box-shadow:var(--shadow)}
+.tab{flex:1;padding:10px;border:none;border-radius:10px;font-size:14px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;color:var(--muted);background:transparent;transition:.15s}
+.tab.active{background:var(--green-dark);color:white}
+.card{background:white;border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);overflow:auto;margin-bottom:16px}
+.panel{display:none}
+.panel.active{display:block}
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.toolbar h2{font-size:17px;font-weight:700}
+.toolbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.live-badge{background:#eef7f1;color:var(--success);font-weight:700;font-size:12px;padding:6px 10px;border-radius:999px;display:flex;align-items:center;gap:6px}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--success);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* Filtro fecha */
+.date-filter{display:flex;align-items:center;gap:8px;background:#f5f1e8;border-radius:12px;padding:8px 12px;flex-wrap:wrap}
+.date-filter label{font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap}
+.date-filter input[type="date"]{border:1.5px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;font-family:'DM Sans',sans-serif;background:white;cursor:pointer}
+.date-filter input[type="date"]:focus{outline:none;border-color:var(--green)}
+.btn-hoy{background:var(--green-dark);color:white;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap}
+
+/* Export buttons */
+.btn-export{border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.btn-excel{background:#e8f5e9;color:#2e7d32}
+.btn-pdf{background:#fce4ec;color:#c62828}
+.btn-export:hover{filter:brightness(.95)}
+.btn-export:active{transform:scale(.97)}
+
+table{width:100%;border-collapse:collapse;min-width:600px}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:10px 12px;border-bottom:2px solid #eee}
+td{padding:12px 12px;border-bottom:1px solid #eee;font-size:14px}
+td.mono{font-family:'DM Mono',monospace;font-weight:600}
+.late{color:var(--danger);font-weight:700}
+.ok{color:var(--success);font-weight:700}
+.empty{text-align:center;padding:32px;color:var(--muted);font-size:14px}
+.delete-record-btn{border:0;background:#fff0ee;color:#c53b2d;font-weight:800;border-radius:10px;padding:9px 12px;cursor:pointer;font-family:'DM Sans',sans-serif}
+.delete-record-btn:hover{background:#ffe0dc}
+.action-cell{text-align:center;white-space:nowrap}
+
+.users-grid{display:grid;gap:12px}
+.user-card{background:#fafaf8;border-radius:14px;padding:16px;display:flex;align-items:center;gap:14px;border:1.5px solid #eee}
+.user-card.inactive{opacity:.5}
+.user-avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--green-dark),var(--green));display:flex;align-items:center;justify-content:center;color:var(--gold);font-size:18px;font-weight:700;flex-shrink:0}
+.user-info{flex:1}
+.user-name{font-weight:700;font-size:15px}
+.user-email{font-size:12px;color:var(--muted);margin-top:2px}
+.user-role{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;margin-top:4px;display:inline-block}
+.role-admin{background:#fdf3e0;color:#9a6b00}
+.role-marshall{background:#eef7f1;color:var(--success)}
+.user-actions{display:flex;gap:8px;flex-direction:column;align-items:flex-end}
+.add-user-form{background:#f0f7f3;border-radius:14px;padding:16px;margin-top:14px;border:1.5px dashed #b8d4c0}
+.add-user-form h3{font-size:14px;font-weight:700;margin-bottom:12px;color:var(--green-dark)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-field input,.form-field select{width:100%;padding:10px 12px;border:1.5px solid #ddd;border-radius:10px;font-size:14px;font-family:'DM Sans',sans-serif}
+.form-field label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:5px;display:block}
+.btn-add{background:var(--green-dark);color:white;border:none;padding:11px 20px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:10px;width:100%}
+.btn-sm{padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;border:none;cursor:pointer;font-family:'DM Sans',sans-serif}
+.btn-warn{background:#fff8ee;color:#9a6b00}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1d2a22;color:white;padding:12px 20px;border-radius:12px;font-size:14px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+@media(max-width:700px){.kpis{grid-template-columns:repeat(2,1fr)}.form-grid{grid-template-columns:1fr}.toolbar{flex-direction:column;align-items:flex-start}}
+</style>
+</head>
+<body>
+
+<div id="authLoading">
+  <div class="spinner"></div>
+  <p>Verificando sesión...</p>
+</div>
+
+<div id="appWrapper">
+
+<div class="header">
+  <div class="header-top">
+    <div>
+      <h1>Panel Administrador</h1>
+      <p>Golf en Ritmo — Control de cancha</p>
+    </div>
+    <button id="chatBtn" onclick="window.location.href='chat.html'" style="position:relative;background:var(--gold);border:none;color:var(--green-dark);height:42px;padding:0 16px;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;font-family:'DM Sans',sans-serif;margin-right:8px;display:inline-flex;align-items:center;gap:7px;box-shadow:0 4px 12px rgba(210,178,95,.4)"><span style="font-size:20px">💬</span><span>Canal</span><span id="chatBadge" style="display:none;position:absolute;top:-5px;right:-5px;background:#c53b2d;color:white;border-radius:50%;width:20px;height:20px;font-size:11px;font-weight:900;align-items:center;justify-content:center;border:2px solid #28543a">!</span></button><button class="logout-btn" onclick="cerrarSesion()">Cerrar sesión</button>
+  </div>
+</div>
+
+<div class="main">
+
+  <div class="kpis">
+    <div class="kpi"><small>Advertencias</small><strong id="kTotal">0</strong></div>
+    <div class="kpi"><small>Promedio atraso</small><strong id="kProm">0</strong></div>
+    <div class="kpi"><small>Hoyo crítico</small><strong id="kHoyo">—</strong></div>
+    <div class="kpi"><small>Última alerta</small><strong id="kUltima">—</strong></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('advertencias', this)">Advertencias</button>
+    <button class="tab" onclick="switchTab('usuarios', this)">Usuarios</button>
+  </div>
+
+  <!-- ADVERTENCIAS -->
+  <div id="panel-advertencias" class="panel active">
+    <div class="card">
+
+      <!-- Filtro de fecha -->
+      <div class="date-filter" style="margin-bottom:14px;">
+        <label>📅 Ver fecha:</label>
+        <input type="date" id="fechaFiltro" />
+        <button class="btn-hoy" onclick="irAHoy()">Hoy</button>
+      </div>
+
+      <div class="toolbar">
+        <h2 id="tituloFecha">Advertencias de hoy</h2>
+        <div class="toolbar-right">
+          <span class="live-badge" id="liveBadge"><span class="live-dot"></span> En vivo</span>
+          <button class="btn-export btn-excel" onclick="exportarExcel()">📊 Excel</button>
+          <button class="btn-export btn-pdf"   onclick="exportarPDF()">📄 PDF</button>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th><th>Hora</th><th>Marshall</th>
+            <th>Salida</th><th>Hoyo</th><th>Estado</th><th>Acción</th>
+          </tr>
+        </thead>
+        <tbody id="tabla">
+          <tr><td colspan="7" class="empty">Esperando registros...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- USUARIOS -->
+  <div id="panel-usuarios" class="panel">
+    <div class="card">
+      <div class="toolbar"><h2>Usuarios del sistema</h2></div>
+      <div class="users-grid" id="usersGrid">
+        <div class="empty">Cargando usuarios...</div>
+      </div>
+      <div class="add-user-form">
+        <h3>+ Agregar usuario</h3>
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Nombre</label>
+            <input type="text" id="newName" placeholder="Nombre completo" />
+          </div>
+          <div class="form-field">
+            <label>Email</label>
+            <input type="email" id="newEmail" placeholder="email@golfenritmo.com" />
+          </div>
+          <div class="form-field">
+            <label>Rol</label>
+            <select id="newRole">
+              <option value="marshall">Marshall</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Contraseña inicial</label>
+            <input type="text" id="newPass" placeholder="Mínimo 6 caracteres" />
+          </div>
+        </div>
+        <button class="btn-add" onclick="agregarUsuario()">Crear usuario</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- SheetJS para Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script></script>
+
+<script type="module">
+import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut, createUserWithEmailAndPassword }
+                             from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, query, orderBy, onSnapshot,
+         setDoc, getDocs, updateDoc, deleteDoc, serverTimestamp, doc }
+                             from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBJRFwNTC1DJOnTGaDV_FYDyKHif5LKrIE",
+  authDomain: "golf-en-ritmo.firebaseapp.com",
+  projectId: "golf-en-ritmo",
+  storageBucket: "golf-en-ritmo.firebasestorage.app",
+  messagingSenderId: "448451530287",
+  appId: "1:448451530287:web:5b851afb50480d027940da"
+};
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+// Estado global
+let datosActuales = [];
+let fechaSeleccionada = hoyISO();
+
+// ── Auth guard ──────────────────────────────────────────────
+onAuthStateChanged(auth, user => {
+  if(!user){ window.location.href = 'login.html'; return; }
+  if(user.email !== 'admin@golfenritmo.com'){
+    window.location.href = 'index.html'; return;
+  }
+  document.getElementById('authLoading').style.display = 'none';
+  document.getElementById('appWrapper').style.display  = 'block';
+  initAdmin();
+});
+
+window.cerrarSesion = async () => { await signOut(auth); window.location.href = 'login.html'; };
+
+// ── Tabs ────────────────────────────────────────────────────
+window.switchTab = function(name, el){
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  el.classList.add('active');
+  if(name === 'usuarios') cargarUsuarios();
+};
+
+function hoyISO(){
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
+}
+
+function formatFecha(iso){
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+// ── Filtro de fecha ─────────────────────────────────────────
+function initAdmin(){
+  const input = document.getElementById('fechaFiltro');
+  input.value = hoyISO();
+  input.addEventListener('change', e => {
+    fechaSeleccionada = e.target.value;
+    actualizarVista();
+  });
+
+  // Suscripción a todos los registros
+  const q = query(collection(db, 'advertencias'), orderBy('createdAt', 'desc'));
+  onSnapshot(q, snap => {
+    window._todosLosRegistros = [];
+    snap.forEach(d => window._todosLosRegistros.push({ id: d.id, ...d.data() }));
+    actualizarVista();
+  });
+}
+
+function actualizarVista(){
+  const todos = window._todosLosRegistros || [];
+  const hoy   = hoyISO();
+  const datos = todos.filter(d => {
+    if(!d.fechaISO) return fechaSeleccionada === hoy;
+    return d.fechaISO === fechaSeleccionada;
+  });
+  datosActuales = datos;
+
+  // Título y badge
+  const esHoy = fechaSeleccionada === hoy;
+  document.getElementById('tituloFecha').textContent =
+    esHoy ? 'Advertencias de hoy' : `Advertencias del ${formatFecha(fechaSeleccionada)}`;
+  const badge = document.getElementById('liveBadge');
+  badge.style.display = esHoy ? 'flex' : 'none';
+
+  renderKpis(datos);
+  renderTabla(datos);
+}
+
+window.irAHoy = function(){
+  fechaSeleccionada = hoyISO();
+  document.getElementById('fechaFiltro').value = fechaSeleccionada;
+  actualizarVista();
+};
+
+// ── KPIs ────────────────────────────────────────────────────
+function renderKpis(datos){
+  const total   = datos.length;
+  const atrasos = datos.map(d => Number(d.minutosAtraso||0)).filter(n => n > 0);
+  const prom    = atrasos.length ? Math.round(atrasos.reduce((a,b)=>a+b,0)/atrasos.length) : 0;
+  const hoyos   = {};
+  datos.forEach(d => { const h = d.hoyo||'—'; hoyos[h] = (hoyos[h]||0)+1; });
+  let hc = '—', mx = 0;
+  Object.entries(hoyos).forEach(([h,c]) => { if(c>mx){ mx=c; hc='H'+h; }});
+  document.getElementById('kTotal').textContent  = total;
+  document.getElementById('kProm').textContent   = prom ? prom+'m' : '0';
+  document.getElementById('kHoyo').textContent   = hc;
+  document.getElementById('kUltima').textContent = datos[0]?.hora || '—';
+}
+
+// ── Tabla ───────────────────────────────────────────────────
+function renderTabla(datos){
+  const tbody = document.getElementById('tabla');
+  if(!datos.length){
+    tbody.innerHTML = `<tr><td colspan="7" class="empty">No hay advertencias para esta fecha.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = datos.map(d => {
+    const cls = Number(d.minutosAtraso||0) > 0 ? 'late' : 'ok';
+    return `<tr>
+      <td class="mono">${d.fecha||'—'}</td>
+      <td class="mono">${d.hora||'—'}</td>
+      <td>${d.marshal||'—'}</td>
+      <td class="mono">${d.salida||'—'}</td>
+      <td class="mono">H${d.hoyo||'—'}</td>
+      <td class="${cls}">${d.estado||'—'}</td>
+      <td class="action-cell"><button class="delete-record-btn" onclick="eliminarAdvertencia('${d.id}')">🗑</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Eliminar ────────────────────────────────────────────────
+window.eliminarAdvertencia = async function(id){
+  if(!confirm('¿Seguro que querés eliminar este registro?')) return;
+  try{
+    await deleteDoc(doc(db, 'advertencias', id));
+    mostrarToast('✓ Registro eliminado');
+  }catch(e){
+    mostrarToast('Error al eliminar. Revisá permisos.');
+    console.error(e);
+  }
+};
+
+// ── Exportar Excel ──────────────────────────────────────────
+window.exportarExcel = function(){
+  if(!datosActuales.length){ mostrarToast('No hay datos para exportar.'); return; }
+  const rows = datosActuales.map(d => ({
+    'Fecha':    d.fecha   || '—',
+    'Hora':     d.hora    || '—',
+    'Marshall': d.marshal || '—',
+    'Salida':   d.salida  || '—',
+    'Hoyo':     `H${d.hoyo||'—'}`,
+    'Estado':   d.estado  || '—',
+    'Min Atraso': d.minutosAtraso || 0,
+  }));
+  const ws  = XLSX.utils.json_to_sheet(rows);
+  const wb  = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Advertencias');
+  // Ancho de columnas
+  ws['!cols'] = [{wch:12},{wch:8},{wch:18},{wch:8},{wch:6},{wch:20},{wch:12}];
+  const fecha = formatFecha(fechaSeleccionada).replace(/\//g,'-');
+  XLSX.writeFile(wb, `GolfEnRitmo_${fecha}.xlsx`);
+  mostrarToast('✓ Excel descargado');
+};
+
+// ── Exportar PDF ────────────────────────────────────────────
+window.exportarPDF = function(){
+  if(!datosActuales.length){ mostrarToast('No hay datos para exportar.'); return; }
+
+  const fecha = document.getElementById('fechaFiltro').value;
+  const filas = datosActuales.map(d => `
+    <tr>
+      <td>${d.fecha||'—'}</td>
+      <td>${d.hora||'—'}</td>
+      <td>${d.marshal||'—'}</td>
+      <td>${d.salida||'—'}</td>
+      <td>H${d.hoyo||'—'}</td>
+      <td style="color:${Number(d.minutosAtraso||0)>0?'#c53b2d':'#207548'};font-weight:700">${d.estado||'—'}</td>
+    </tr>`).join('');
+
+  const total   = datosActuales.length;
+  const atrasos = datosActuales.map(d=>Number(d.minutosAtraso||0)).filter(n=>n>0);
+  const prom    = atrasos.length ? Math.round(atrasos.reduce((a,b)=>a+b,0)/atrasos.length) : 0;
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Golf en Ritmo — Reporte ${formatFecha(fecha)}</title>
+  <style>
+    body{font-family:sans-serif;padding:32px;color:#1d2a22;max-width:900px;margin:auto}
+    h1{color:#173524;font-size:22px;margin-bottom:4px}
+    .sub{color:#718277;font-size:13px;margin-bottom:24px}
+    .kpis{display:flex;gap:16px;margin-bottom:24px}
+    .kpi{background:#f4efe6;border-radius:10px;padding:12px 18px;flex:1;text-align:center}
+    .kpi strong{display:block;font-size:24px;font-family:monospace}
+    .kpi small{font-size:11px;color:#718277;text-transform:uppercase;letter-spacing:.05em}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th{background:#173524;color:white;padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+    td{padding:10px 12px;border-bottom:1px solid #eee}
+    tr:nth-child(even) td{background:#fafaf8}
+    .footer{margin-top:24px;font-size:11px;color:#aaa;text-align:center}
+  </style></head><body>
+  <h1>Golf en Ritmo — Reporte de Advertencias</h1>
+  <div class="sub">Fecha: ${formatFecha(fecha)} · Generado el ${new Date().toLocaleString('es-UY')}</div>
+  <div class="kpis">
+    <div class="kpi"><strong>${total}</strong><small>Advertencias</small></div>
+    <div class="kpi"><strong>${prom ? prom+'min' : '0'}</strong><small>Prom. atraso</small></div>
+  </div>
+  <table>
+    <thead><tr><th>Fecha</th><th>Hora</th><th>Marshall</th><th>Salida</th><th>Hoyo</th><th>Estado</th></tr></thead>
+    <tbody>${filas}</tbody>
+  </table>
+  <div class="footer">Golf en Ritmo · Sistema de Control de Ritmo de Juego</div>
+  <script>window.onload=()=>{window.print()}<\/script>
+
+
+<!-- Background chat notifier -->
+<script type="module">
+import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, query, orderBy, onSnapshot, limit }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBJRFwNTC1DJOnTGaDV_FYDyKHif5LKrIE",
+  authDomain: "golf-en-ritmo.firebaseapp.com",
+  projectId: "golf-en-ritmo",
+  storageBucket: "golf-en-ritmo.firebasestorage.app",
+  messagingSenderId: "448451530287",
+  appId: "1:448451530287:web:5b851afb50480d027940da"
+};
+
+const app  = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+// Crear banner con createElement (sin template literals)
+const banner = document.createElement('div');
+banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:linear-gradient(135deg,#173524,#28543a);padding:16px 18px;z-index:9999;transform:translateY(-100%);transition:transform .35s ease;box-shadow:0 8px 32px rgba(0,0,0,.3);cursor:pointer;border-bottom:2px solid #d2b25f;display:flex;align-items:center;gap:14px';
+
+const icon = document.createElement('span');
+icon.style.cssText = 'font-size:28px;flex-shrink:0';
+icon.textContent = '💬';
+
+const textWrap = document.createElement('div');
+
+const senderEl = document.createElement('div');
+senderEl.id = 'cnSender';
+senderEl.style.cssText = 'font-size:12px;color:#d2b25f;font-weight:700;margin-bottom:3px;text-transform:uppercase;letter-spacing:.06em';
+
+const textEl = document.createElement('div');
+textEl.id = 'cnText';
+textEl.style.cssText = 'font-size:15px;font-weight:600;color:white;line-height:1.35';
+
+const hintEl = document.createElement('div');
+hintEl.style.cssText = 'font-size:11px;color:rgba(255,255,255,.5);margin-top:4px';
+hintEl.textContent = 'Toca para abrir el canal';
+
+textWrap.appendChild(senderEl);
+textWrap.appendChild(textEl);
+textWrap.appendChild(hintEl);
+banner.appendChild(icon);
+banner.appendChild(textWrap);
+banner.onclick = function(){ window.location.href = 'chat.html'; };
+document.body.appendChild(banner);
+
+function showBanner(sender, text){
+  senderEl.textContent = sender;
+  textEl.textContent = text.length > 65 ? text.slice(0,65)+'...' : text;
+  banner.style.transform = 'translateY(0)';
+  if(navigator.vibrate){ navigator.vibrate([300, 100, 300]); }
+  setTimeout(function(){ banner.style.transform = 'translateY(-100%)'; }, 5500);
+}
+
+function showBadge(){
+  var b = document.getElementById('chatBadge');
+  if(b){ b.style.display = 'flex'; }
+}
+
+onAuthStateChanged(auth, function(user){
+  if(!user) return;
+  var initialized = false;
+  var q = query(collection(db, 'mensajes'), orderBy('createdAt', 'desc'), limit(5));
+  onSnapshot(q, function(snap){
+    if(!initialized){ initialized = true; return; }
+    snap.docChanges().forEach(function(change){
+      if(change.type === 'added'){
+        var data = change.doc.data();
+        if(data.autorEmail === user.email) return;
+        showBanner(data.autor || 'Nuevo mensaje', data.texto || '');
+        showBadge();
+      }
+    });
+  });
+});
+</script>
+
+</body></html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+};
+
+// ── Gestión de usuarios ─────────────────────────────────────
+async function cargarUsuarios(){
+  const grid = document.getElementById('usersGrid');
+  grid.innerHTML = '<div class="empty">Cargando...</div>';
+  try{
+    const snap = await getDocs(collection(db, 'usuarios'));
+    if(snap.empty){ await crearUsuariosDefault(); return cargarUsuarios(); }
+    const users = [];
+    snap.forEach(d => users.push({ id: d.id, ...d.data() }));
+    grid.innerHTML = users.map(u => `
+      <div class="user-card ${u.activo===false?'inactive':''}" id="uc-${u.id}">
+        <div class="user-avatar">${(u.nombre||'?').charAt(0)}</div>
+        <div class="user-info">
+          <div class="user-name">${u.nombre||'Sin nombre'}</div>
+          <div class="user-email">${u.email||'—'}</div>
+          <span class="user-role ${u.rol==='admin'?'role-admin':'role-marshall'}">
+            ${u.rol==='admin'?'Administrador':'Marshall'}
+          </span>
+        </div>
+        <div class="user-actions">
+          ${u.activo!==false
+            ? `<button class="btn-sm btn-warn" onclick="toggleUsuario('${u.id}',false)">Desactivar</button>`
+            : `<button class="btn-sm" onclick="toggleUsuario('${u.id}',true)" style="background:#eef7f1;color:#207548">Activar</button>`}
+        </div>
+      </div>`).join('');
+  }catch(e){
+    grid.innerHTML = '<div class="empty">Error cargando usuarios.</div>';
+    console.error(e);
+  }
+}
+
+async function crearUsuariosDefault(){
+  const defaults = [
+    {email:'admin@golfenritmo.com',       nombre:'Administrador', rol:'admin',    activo:true},
+    {email:'diegoperez@golfenritmo.com',   nombre:'Diego Pérez',   rol:'marshall', activo:true},
+    {email:'diegopereira@golfenritmo.com', nombre:'Diego Pereira', rol:'marshall', activo:true},
+    {email:'otro@golfenritmo.com',         nombre:'Otro Marshall', rol:'marshall', activo:true},
+  ];
+  for(const u of defaults) await setDoc(doc(db,'usuarios',u.email.replace(/[@.]/g,'_')),u);
+}
+
+window.toggleUsuario = async function(id, estado){
+  await updateDoc(doc(db,'usuarios',id),{activo:estado});
+  mostrarToast(estado?'✓ Usuario activado':'Usuario desactivado');
+  cargarUsuarios();
+};
+
+window.agregarUsuario = async function(){
+  const nombre = document.getElementById('newName').value.trim();
+  const email  = document.getElementById('newEmail').value.trim();
+  const rol    = document.getElementById('newRole').value;
+  const pass   = document.getElementById('newPass').value;
+  if(!nombre||!email||!pass){ mostrarToast('Completá todos los campos.'); return; }
+  if(pass.length<6){ mostrarToast('La contraseña debe tener al menos 6 caracteres.'); return; }
+  try{
+    await createUserWithEmailAndPassword(auth, email, pass);
+    const id = email.replace(/[@.]/g,'_');
+    await setDoc(doc(db,'usuarios',id),{email,nombre,rol,activo:true,creadoAt:serverTimestamp()});
+    document.getElementById('newName').value='';
+    document.getElementById('newEmail').value='';
+    document.getElementById('newPass').value='';
+    mostrarToast(`✓ Usuario ${nombre} creado`);
+    cargarUsuarios();
+  }catch(e){
+    mostrarToast(e.code==='auth/email-already-in-use'?'Ese email ya está registrado.':'Error al crear usuario.');
+    console.error(e);
+  }
+};
+
+function mostrarToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+</script>
+
+
+<!-- Background chat notifier -->
+<script type="module">
+import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, query, orderBy, onSnapshot, limit }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBJRFwNTC1DJOnTGaDV_FYDyKHif5LKrIE",
+  authDomain: "golf-en-ritmo.firebaseapp.com",
+  projectId: "golf-en-ritmo",
+  storageBucket: "golf-en-ritmo.firebasestorage.app",
+  messagingSenderId: "448451530287",
+  appId: "1:448451530287:web:5b851afb50480d027940da"
+};
+
+const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+const banner = document.createElement('div');
+banner.innerHTML = `<div style="display:flex;align-items:center;gap:14px">
+  <span style="font-size:28px;flex-shrink:0">💬</span>
+  <div>
+    <div id="cnSender" style="font-size:12px;color:#d2b25f;font-weight:700;margin-bottom:3px;text-transform:uppercase;letter-spacing:.06em"></div>
+    <div id="cnText" style="font-size:15px;font-weight:600;color:white;line-height:1.35"></div>
+    <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:4px">Tocá para abrir el canal →</div>
+  </div>
+</div>`;
+Object.assign(banner.style, {
+  position:'fixed',top:'0',left:'0',right:'0',
+  background:'linear-gradient(135deg,#173524,#28543a)',
+  padding:'16px 18px',zIndex:'9999',
+  transform:'translateY(-100%)',
+  transition:'transform .35s cubic-bezier(.4,0,.2,1)',
+  boxShadow:'0 8px 32px rgba(0,0,0,.3)',
+  cursor:'pointer',borderBottom:'2px solid #d2b25f'
+});
+banner.onclick = () => { window.location.href = 'chat.html'; };
+document.body.appendChild(banner);
+
+function showBanner(sender, text){
+  document.getElementById('cnSender').textContent = sender;
+  document.getElementById('cnText').textContent = text.length > 65 ? text.slice(0,65)+'…' : text;
+  banner.style.transform = 'translateY(0)';
+  if(navigator.vibrate) navigator.vibrate([300,100,300]);
+  setTimeout(() => banner.style.transform = 'translateY(-100%)', 5500);
+}
+
+function showBadge(){
+  const b = document.getElementById('chatBadge');
+  if(b){ b.style.display = 'flex'; }
+}
+
+onAuthStateChanged(auth, user => {
+  if(!user) return;
+  const LSKEY = 'golf_lastmsg_' + user.uid;
+  let lastId = localStorage.getItem(LSKEY) || '';
+  let first  = true;
+  const q = query(collection(db,'mensajes'), orderBy('createdAt','desc'), limit(1));
+  onSnapshot(q, snap => {
+    snap.forEach(d => {
+      if(first){
+        if(!lastId){ lastId = d.id; localStorage.setItem(LSKEY, d.id); }
+        first = false; return;
+      }
+      if(d.id !== lastId && d.data().autorEmail !== user.email){
+        lastId = d.id;
+        localStorage.setItem(LSKEY, d.id);
+        showBanner(d.data().autor || 'Nuevo mensaje', d.data().texto || '');
+        showBadge();
+      }
+    });
+    if(first) first = false;
+  });
+});
+</script>
+
+
+<!-- Background chat notifier -->
+<script type="module">
+import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, query, orderBy, onSnapshot, limit }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBJRFwNTC1DJOnTGaDV_FYDyKHif5LKrIE",
+  authDomain: "golf-en-ritmo.firebaseapp.com",
+  projectId: "golf-en-ritmo",
+  storageBucket: "golf-en-ritmo.firebasestorage.app",
+  messagingSenderId: "448451530287",
+  appId: "1:448451530287:web:5b851afb50480d027940da"
+};
+
+const app  = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+// Banner
+const banner = document.createElement('div');
+banner.innerHTML = `<div style="display:flex;align-items:center;gap:14px">
+  <span style="font-size:28px;flex-shrink:0">💬</span>
+  <div>
+    <div id="cnSender" style="font-size:12px;color:#d2b25f;font-weight:700;margin-bottom:3px;text-transform:uppercase;letter-spacing:.06em"></div>
+    <div id="cnText" style="font-size:15px;font-weight:600;color:white;line-height:1.35"></div>
+    <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:4px">Tocá para abrir el canal →</div>
+  </div>
+</div>`;
+Object.assign(banner.style, {
+  position:'fixed', top:'0', left:'0', right:'0',
+  background:'linear-gradient(135deg,#173524,#28543a)',
+  padding:'16px 18px', zIndex:'9999',
+  transform:'translateY(-100%)',
+  transition:'transform .35s cubic-bezier(.4,0,.2,1)',
+  boxShadow:'0 8px 32px rgba(0,0,0,.3)',
+  cursor:'pointer', borderBottom:'2px solid #d2b25f'
+});
+banner.onclick = () => { window.location.href = 'chat.html'; };
+document.body.appendChild(banner);
+
+function showBanner(sender, text){
+  document.getElementById('cnSender').textContent = sender;
+  document.getElementById('cnText').textContent = text.length > 65 ? text.slice(0,65)+'...' : text;
+  banner.style.transform = 'translateY(0)';
+  if(navigator.vibrate) navigator.vibrate([300, 100, 300]);
+  setTimeout(() => { banner.style.transform = 'translateY(-100%)'; }, 5500);
+}
+
+function showBadge(){
+  const b = document.getElementById('chatBadge');
+  if(b){ b.style.display = 'flex'; }
+}
+
+onAuthStateChanged(auth, user => {
+  if(!user) return;
+
+  // Use timestamp to detect new messages - ignore anything older than now
+  const startTime = new Date();
+  let initialized = false;
+
+  const q = query(collection(db, 'mensajes'), orderBy('createdAt', 'desc'), limit(5));
+
+  onSnapshot(q, snap => {
+    // First call: just mark as initialized, don't notify
+    if(!initialized){
+      initialized = true;
+      return;
+    }
+
+    // On subsequent calls: check for changes
+    snap.docChanges().forEach(change => {
+      if(change.type === 'added'){
+        const data = change.doc.data();
+        // Skip if it's our own message
+        if(data.autorEmail === user.email) return;
+        // Skip if message is older than when we loaded the page
+        if(data.createdAt && data.createdAt.toDate){
+          if(data.createdAt.toDate() < startTime) return;
+        }
+        showBanner(data.autor || 'Nuevo mensaje', data.texto || '');
+        showBadge();
+      }
+    });
+  });
+});
+</script>
+
+
+<!-- Background chat notifier -->
+<script type="module">
+import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, query, orderBy, onSnapshot, limit }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBJRFwNTC1DJOnTGaDV_FYDyKHif5LKrIE",
+  authDomain: "golf-en-ritmo.firebaseapp.com",
+  projectId: "golf-en-ritmo",
+  storageBucket: "golf-en-ritmo.firebasestorage.app",
+  messagingSenderId: "448451530287",
+  appId: "1:448451530287:web:5b851afb50480d027940da"
+};
+
+const app  = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+// Crear banner con createElement (sin template literals)
+const banner = document.createElement('div');
+banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:linear-gradient(135deg,#173524,#28543a);padding:16px 18px;z-index:9999;transform:translateY(-100%);transition:transform .35s ease;box-shadow:0 8px 32px rgba(0,0,0,.3);cursor:pointer;border-bottom:2px solid #d2b25f;display:flex;align-items:center;gap:14px';
+
+const icon = document.createElement('span');
+icon.style.cssText = 'font-size:28px;flex-shrink:0';
+icon.textContent = '💬';
+
+const textWrap = document.createElement('div');
+
+const senderEl = document.createElement('div');
+senderEl.id = 'cnSender';
+senderEl.style.cssText = 'font-size:12px;color:#d2b25f;font-weight:700;margin-bottom:3px;text-transform:uppercase;letter-spacing:.06em';
+
+const textEl = document.createElement('div');
+textEl.id = 'cnText';
+textEl.style.cssText = 'font-size:15px;font-weight:600;color:white;line-height:1.35';
+
+const hintEl = document.createElement('div');
+hintEl.style.cssText = 'font-size:11px;color:rgba(255,255,255,.5);margin-top:4px';
+hintEl.textContent = 'Toca para abrir el canal';
+
+textWrap.appendChild(senderEl);
+textWrap.appendChild(textEl);
+textWrap.appendChild(hintEl);
+banner.appendChild(icon);
+banner.appendChild(textWrap);
+banner.onclick = function(){ window.location.href = 'chat.html'; };
+document.body.appendChild(banner);
+
+function showBanner(sender, text){
+  senderEl.textContent = sender;
+  textEl.textContent = text.length > 65 ? text.slice(0,65)+'...' : text;
+  banner.style.transform = 'translateY(0)';
+  if(navigator.vibrate){ navigator.vibrate([300, 100, 300]); }
+  setTimeout(function(){ banner.style.transform = 'translateY(-100%)'; }, 5500);
+}
+
+function showBadge(){
+  var b = document.getElementById('chatBadge');
+  if(b){ b.style.display = 'flex'; }
+}
+
+onAuthStateChanged(auth, function(user){
+  if(!user) return;
+  var initialized = false;
+  var q = query(collection(db, 'mensajes'), orderBy('createdAt', 'desc'), limit(5));
+  onSnapshot(q, function(snap){
+    if(!initialized){ initialized = true; return; }
+    snap.docChanges().forEach(function(change){
+      if(change.type === 'added'){
+        var data = change.doc.data();
+        if(data.autorEmail === user.email) return;
+        showBanner(data.autor || 'Nuevo mensaje', data.texto || '');
+        showBadge();
+      }
+    });
+  });
+});
+</script>
+
+</body>
+</html>
